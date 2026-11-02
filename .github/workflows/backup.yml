@@ -1,0 +1,36 @@
+# Opt-in only. Configure all required secrets and ENABLE_STUDY_BACKUPS=true
+# after reading docs/BACKUPS.md. This workflow has not connected to a hosted DB.
+name: Encrypted database backup (opt-in)
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 19 * * 0"
+permissions:
+  contents: read
+jobs:
+  backup:
+    if: vars.ENABLE_STUDY_BACKUPS == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install encryption tool
+        run: sudo apt-get update && sudo apt-get install -y age
+      - name: Dump public application data and encrypt
+        env:
+          STUDY_DATABASE_URL: ${{ secrets.STUDY_DATABASE_URL }}
+          STUDY_BACKUP_RECIPIENT: ${{ vars.STUDY_BACKUP_RECIPIENT }}
+        run: |
+          set -euo pipefail
+          test -n "$STUDY_DATABASE_URL"
+          test -n "$STUDY_BACKUP_RECIPIENT"
+          case "$STUDY_DATABASE_URL" in *sslmode=verify-full*) ;; *) echo "Database URL must require sslmode=verify-full"; exit 1 ;; esac
+          umask 077
+          trap 'rm -f /tmp/study.dump' EXIT
+          docker run --rm -e STUDY_DATABASE_URL -e PGSSLMODE=verify-full -e PGSSLROOTCERT=system postgres:17 sh -c 'pg_dump --dbname="$STUDY_DATABASE_URL" --schema=public --format=custom --no-owner --no-acl' > /tmp/study.dump
+          test -s /tmp/study.dump
+          age -r "$STUDY_BACKUP_RECIPIENT" -o study-backup.dump.age /tmp/study.dump
+      - uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-study-backup-${{ github.run_id }}
+          path: study-backup.dump.age
+          retention-days: 30

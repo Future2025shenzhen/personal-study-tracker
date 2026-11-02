@@ -1,0 +1,32 @@
+{
+  "name": "personal-study-tracker",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "vitest run",
+    "test:browser": "playwright test",
+    "test:database": "node scripts/test-database.mjs",
+    "test:postgres": "node scripts/test-postgres.mjs"
+  },
+  "dependencies": {
+    "@js-temporal/polyfill": "0.5.1",
+    "@supabase/supabase-js": "2.81.1",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.3.14",
+    "@playwright/test": "1.56.1",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "@vitejs/plugin-react": "5.1.0",
+    "prettier": "3.6.2",
+    "typescript": "5.9.3",
+    "vite": "7.2.2",
+    "vitest": "4.0.8"
+  }
+}
