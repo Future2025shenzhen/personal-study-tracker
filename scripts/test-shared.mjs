@@ -136,6 +136,19 @@ try {
   );
   assert.equal(check.split("|").slice(0, 3).join("|"), "t|t|f");
   pass("read-only preflight recognizes exact legacy validator and trigger");
+  const diagnosis = await fs.readFile(
+    "supabase/shared/04_diagnose_registration.sql",
+    "utf8",
+  );
+  assert.equal(last(await sql(diagnosis)), "NOT_INSTALLED|0|0|f|t|0");
+  pass(
+    "catalog diagnosis works when the installation registry and ALL study tables are missing",
+  );
+  await sql("create table public.study_workspaces (id integer);");
+  assert.equal(last(await sql(diagnosis)), "PARTIAL_OR_DIFFERENT|1|0|f|t|0");
+  await sql("drop table public.study_workspaces;");
+  assert.equal(await snapshot(), before);
+  pass("partial-install diagnosis does not alter any existing math data");
   const install = await fs.readFile(
     "supabase/shared/01_install_shared.sql",
     "utf8",
@@ -189,6 +202,10 @@ try {
   assert.equal(postCheck, "t|t|t|t|t|t|t|t");
   pass(
     "read-only post-install check confirms all eight schema, legacy and permission flags",
+  );
+  assert.equal(last(await sql(diagnosis)), "OBJECTS_PRESENT|4|3|t|t|0");
+  pass(
+    "catalog diagnosis distinguishes full object presence without claiming Auth readiness",
   );
   await assert.rejects(sql(install));
   assert.equal(await snapshot(), before);

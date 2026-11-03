@@ -1,3 +1,5 @@
+> 2026-11-04 更新：网站已由 GitHub Pages 成功发布，但用户真实邮箱注册出现 `Database error saving new user`。随后只读核查返回 `public.study_shared_installation does not exist`，因此不能再把先前 SQL Success 截图当作完整共享安装的证据。当前应先确认项目并执行下述缺表兼容诊断；不应重装或删除表。
+
 # 共用 maths Library 后台 · 2026-11-03
 
 用户反馈的首次只读检查为 `false / true / false / 0`。随后提供了线上 `pp_new_user()` 完整导出；已核对其 SQL token（保留字符串内容）与仓库版完全相同，差别仅排版。脚本现仅精确接受这两个已审查函数体；不会删除全部空白后接受任意变体。原函数仍不改写。该导出副本为 `tests/fixtures/math-pp-new-user-export.sql`。
@@ -70,3 +72,15 @@ Supabase 自带发信仅适合测试，官方说明存在项目团队成员收�
 `supabase/shared/03_verify_install.sql` 是安装后专用检查，预期八个值均为 `true`，检查表是否齐全、RLS、旧函数和已记录触发器、学习访问策略、客户端写入限制、私有元数据和匿名调用限制。不返回任何用户资料。不要把安装前的 `00_check_math_library.sql` 当作安装后验收：旧触发器会有意加入分流条件，因此其安装前检查值会变化。
 
 此检查已在两个隔离测试库中通过；真实库仍需由项目所有者在 SQL Editor 执行或恢复云环境访问后验证。
+
+## 注册失败且安装记录表缺失时
+
+先确认打开的网站配置目标项目：`https://supabase.com/dashboard/project/tftetbicqcnhinnldsln/sql/new`。这只是进入 SQL Editor 的链接，不执行任何操作；若无权进入或项目名称不符，应先核对公开 Project URL，不要在其他项目运行安装。
+
+运行 `supabase/shared/04_diagnose_registration.sql`。它只读系统目录，不引用任何学习业务表的内容，即使全部表缺失也能返回：
+
+- `NOT_INSTALLED`：四张学习表和三个学习函数都未发现。需在确认旧规则仍匹配后执行完整共享安装。
+- `PARTIAL_OR_DIFFERENT`：存在部分对象，不能重跑原安装或删除对象；先根据结果准备保留数据的补齐方案。
+- `OBJECTS_PRESENT`：仅证明对象存在，不代表权限、触发器、实际邮件或账号服务正常。继续检查 03 核查和 Auth 日志。
+
+旧 03 检查面向安装完整的项目，直接引用安装记录表；在缺表状态报错是有诊断价值的线索，但不说明其他学习表一定缺失。新诊断在完全未安装、部分表存在和完整安装三种情形，均已对两个数学函数版本进行真实 Postgres 回归。

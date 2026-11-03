@@ -147,3 +147,26 @@ select
  not has_function_privilege('anon','public.commit_study_workspace(bigint,uuid,jsonb)','EXECUTE') and not has_function_privilege('anon','public.study_authorize_email()','EXECUTE') as anonymous_write_api_blocked;
 `,
 );
+
+// Catalog-only recovery check: unlike the installed-state verification above,
+// this remains readable when one or ALL study tables have never been created.
+await fs.writeFile(
+  "supabase/shared/04_diagnose_registration.sql",
+  `-- READ ONLY. Catalogs only; works before, after, or during a partial installation.
+-- No user records, emails, credentials, or app table contents are returned.
+with counts as (
+ select
+  (select count(*) from pg_class where oid in (to_regclass('public.study_workspaces'),to_regclass('public.study_operations'),to_regclass('public.study_verified_emails'),to_regclass('public.study_shared_installation'))) as table_count,
+  (select count(*) from pg_proc where oid in (to_regprocedure('public.study_has_access()'),to_regprocedure('public.study_authorize_email()'),to_regprocedure('public.commit_study_workspace(bigint,uuid,jsonb)'))) as function_count
+)
+select
+ case when table_count=0 and function_count=0 then 'NOT_INSTALLED'
+      when table_count=4 and function_count=3 then 'OBJECTS_PRESENT'
+      else 'PARTIAL_OR_DIFFERENT' end as install_state,
+ table_count as study_tables_found, function_count as study_functions_found,
+ exists(select 1 from pg_trigger where tgrelid=to_regclass('auth.users') and tgname='pp_auth_user_created' and not tgisinternal and tgqual is not null) as nickname_filter_present,
+ exists(select 1 from pg_proc p where p.oid=to_regprocedure('public.pp_new_user()') and p.prosecdef and md5(p.prosrc) in (${fingerprints})) as math_validator_matches,
+ (select count(*) from pg_trigger where tgrelid=to_regclass('auth.users') and not tgisinternal and (tgtype&4)=4 and tgname<>'pp_auth_user_created') as other_insert_triggers
+from counts;
+`,
+);
