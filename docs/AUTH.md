@@ -18,3 +18,5 @@
 - https://github.com/supabase/supabase/tree/master/apps/docs/content/guides/auth
 
 用户已实测收到 Magic Link，数字验证码缺失的配置步骤和新 UI 行为见 [EMAIL_CODE_SETUP.md](EMAIL_CODE_SETUP.md)。实际数字投递仍待验收。
+
+2026-11-04 当前控制台截图进一步确认：未配置 custom SMTP 时，模板正文和 Source 编辑被锁定。须先配置可用的 SMTP，再按 EMAIL_CODE_SETUP.md 追加 Token。此前直接切换 Source 的指导不适用于该页面；不能声称模板已保存或数字码已投递。

@@ -2,9 +2,17 @@
 
 Supabase 的 `signInWithOtp` 默认发送 Magic Link。接口叫 OTP 不代表邮件正文自动包含数字；官方要求在 Magic Link 模板里使用 `{{ .Token }}`。之前网站把这一步未配置的模板也描述为“接收验证码”，造成误导，现已修正网站说明。
 
-## 项目所有者需要执行一次
+## 先确认 SMTP 前提（用户当前页面的限制）
 
-1. 进入 maths Library 的 Authentication → Emails / Email Templates → Magic Link：
+2026-11-04 用户截图显示：`Set up custom SMTP to edit templates`、`Emails will be sent using the default templates. Set up custom SMTP to edit their subject and body.`，Source 灰色。这是邮件服务配置限制，不能靠继续找 Source、改前端或重跑 SQL 解锁。
+
+本项目必须先配置可用的自定义 SMTP，才可按下面步骤编辑数字码模板。先不要升级付费或保存空 SMTP 字段。可以检查所有者现有 126 邮箱是否允许 SMTP/客户端授权，若支持，再取得专用授权码并在 Supabase 安全填写；不索要邮箱密码或授权码，不让用户在聊天、截图、GitHub、VITE 配置或前端环境中暴露这些秘密。
+
+Supabase 官方文档确认支持符合 SMTP 协议的服务，并需要 host、port、username、password、From 地址。此执行环境无法访问网易官方帮助（代理 CONNECT 403），因此尚未核实该具体 126 账号能否开通、实际服务端设置、限额、费用及跨境投递。不要把常见参数或“个人邮箱免费”当作该账号已验证结果。先按用户真实邮箱设置界面确认，不创建新付费服务。
+
+## SMTP 成功配置后，项目所有者需要执行一次
+
+1. 确认自定义 SMTP 已成功配置并且模板编辑框已可用，再进入 maths Library 的 Authentication → Emails / Email Templates → Magic Link：
    https://supabase.com/dashboard/project/tftetbicqcnhinnldsln/auth/templates/magic-link-or-otp
 2. **保留现有邮件正文和链接**，在正文的段落之间追加：
 
