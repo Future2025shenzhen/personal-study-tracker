@@ -65,3 +65,7 @@ npm run build
 首次 Actions 运行：https://github.com/Future2025shenzhen/personal-study-tracker/actions/runs/41665791416 。build 全部成功，用时 1m22s，并产生 github-pages 制品；deploy 在 6s 内返回 404：Ensure GitHub Pages has been enabled。当前问题是仓库发布设置，不是测试失败。用户需在仓库 Settings → Pages → Source 选择 GitHub Actions。
 
 当前云环境仍禁止 api.github.com 和该站点 github.io 主机的连接；未能代用户修改 Pages 设置，不能声称网站已可访问。启用并发布后还须验收实际网站、邮箱投递及共享数据库连接。
+
+## Pages 启用后重新发布
+
+用户截图确认 Pages Source 已为 GitHub Actions。第二次运行 41666452216 在 test:postgres 失败；公开步骤元数据确认其余此前步骤通过。检查发现测试用 pg_isready 检查 Unix socket，会把镜像初始化阶段的临时数据库误判为最终服务（临时服务随后关闭）。测试改为用认证 TCP 查询等待最终服务，与共享兼容测试保持相同方式，不跳过任何并发/权限/恢复断言。本地修正后 5 项多连接与恢复检查通过。详细云端日志需要 GitHub 登录，当前环境无法读取，实际修复结果以新一轮云端运行确认。

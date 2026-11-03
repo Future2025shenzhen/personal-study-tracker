@@ -1,6 +1,6 @@
 # Personal Study Tracker · 个人学习记录
 
-源码仓库：https://github.com/Future2025shenzhen/personal-study-tracker 。首次 GitHub Actions 云端测试/构建已通过；Pages 发布因仓库未启用 Pages 返回 404，网站尚未上线。项目所有者需在 Settings → Pages → Source 选择 GitHub Actions 后重新发布。
+源码仓库：https://github.com/Future2025shenzhen/personal-study-tracker 。Pages Source 已由项目所有者设置为 GitHub Actions。网站入口为 https://future2025shenzhen.github.io/personal-study-tracker/ （发布状态以最新 Actions 结果为准）。首次构建通过后曾因未启用 Pages 返回 404；后续重跑暴露的临时 Postgres 启动时序问题已修复，完整检查仍为发布前提。
 
 **2026-11-03 更新：用户已授权共用 maths Library 的 Supabase，sixsigma 不动。当前步骤见 [共享后台安装指南](docs/SHARED_SUPABASE.md)。用户已反馈共享安装 SQL 执行成功；真实表结构与权限的只读复查、邮箱投递及上线仍待验收。**
 

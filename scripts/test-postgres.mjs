@@ -37,8 +37,12 @@ const sql = (db, text) =>
     [
       "exec",
       "-i",
+      "-e",
+      "PGPASSWORD=local-test-only",
       container,
       "psql",
+      "-h",
+      "127.0.0.1",
       "-U",
       "postgres",
       "-d",
@@ -81,7 +85,10 @@ try {
   let ready = false;
   for (let i = 0; i < 30; i++) {
     try {
-      await exec("pg_isready", "-U", "postgres");
+      // initdb starts a temporary Unix-socket-only server, then stops it.
+      // A successful local pg_isready can race that shutdown. Require an
+      // authenticated TCP query against the final server before any setup.
+      await sql("postgres", "select 1;");
       ready = true;
       break;
     } catch {
