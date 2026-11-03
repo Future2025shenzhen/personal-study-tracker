@@ -1,5 +1,7 @@
 # Personal Study Tracker · 个人学习记录
 
+**2026-11-03 更新：用户选择优先免费且不共用现有后台。现进入 [免费独立后台评估](docs/FREE_BACKEND.md)，候选为 Appwrite Cloud；下文 Supabase 部署步骤暂缓，代码尚未迁移。**
+
 独立于 pure-maths-library 的新项目。React + TypeScript + Vite 静态前端，Supabase Auth / Postgres 云端。无广告、排行榜和自动判分。
 
 **当前交付是可实际记录数据的本机版本，附云端实现和部署配置。尚未连接真实 Supabase，也尚未发布公网网址。** 真实邮件和跨设备网络验收完成后，才能将云端版本投入正式使用。
