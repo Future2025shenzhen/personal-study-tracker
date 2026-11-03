@@ -102,17 +102,28 @@ try {
   await sql(
     `create role anon;create role authenticated;create schema auth;create table auth.users(id uuid primary key,email text,raw_user_meta_data jsonb default '{}');create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;create function auth.jwt() returns jsonb language sql stable as $$select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb$$;grant usage on schema auth to anon,authenticated;grant execute on function auth.uid(),auth.jwt() to anon,authenticated;`,
   );
+  // Supabase projects may explicitly grant new functions/tables to API roles.
+  // Our migration must revoke those defaults, not just the implicit PUBLIC grant.
+  await sql(
+    "alter default privileges in schema public grant all on functions to anon,authenticated;alter default privileges in schema public grant all on tables to anon,authenticated;",
+  );
   await sql(await fs.readFile("tests/fixtures/math-001-accounts.sql", "utf8"));
-  const exportedVariant = process.env.STUDY_TEST_LEGACY_VARIANT === "export";
+  const variant = process.env.STUDY_TEST_LEGACY_VARIANT || "repository";
   const ownerExport = await fs.readFile(
     "tests/fixtures/math-pp-new-user-export.sql",
     "utf8",
   );
-  if (exportedVariant) await sql(ownerExport);
-  console.log(
-    "Testing validator variant: " +
-      (exportedVariant ? "owner-export" : "repository"),
+  const liveDiagnostic = JSON.parse(
+    await fs.readFile("tests/fixtures/math-pp-new-user-crlf.json", "utf8"),
   );
+  const crlfSource = liveDiagnostic.validator.source;
+  const crlfValidator =
+    "CREATE OR REPLACE FUNCTION public.pp_new_user() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'pg_catalog' AS $function$" +
+    crlfSource +
+    "$function$;";
+  if (variant === "export") await sql(ownerExport);
+  if (variant === "crlf") await sql(crlfValidator);
+  console.log("Testing validator variant: " + variant);
   await insert(1, email("Student_One"), { nickname: "Student_One" });
   await sql(
     `insert into public.pp_question_catalog values('math-q','original','P1');insert into public.pp_records(user_id,question_id,saved,done,version) values(${q(user(1))},'math-q',true,true,9);insert into public.pp_admins values(${q(user(1))});`,
@@ -157,11 +168,14 @@ try {
     "tests/fixtures/math-001-accounts.sql",
     "utf8",
   );
-  const validator = exportedVariant
-    ? ownerExport
-    : fixture.match(
-        /create or replace function public\.pp_new_user\(\)[\s\S]*?\$\$;/,
-      )[0];
+  const validator =
+    variant === "crlf"
+      ? crlfValidator
+      : variant === "export"
+        ? ownerExport
+        : fixture.match(
+            /create or replace function public\.pp_new_user\(\)[\s\S]*?\$\$;/,
+          )[0];
   await sql(
     validator.replace(
       /(as \$\$|AS \$function\$)/,
@@ -177,6 +191,20 @@ try {
   pass(
     "unreviewed live validator changes stop installation before creating tables",
   );
+  const unsafeConfig = validator
+    .replace("set search_path=pg_catalog", "set search_path=public")
+    .replace("SET search_path TO 'pg_catalog'", "SET search_path TO 'public'");
+  await sql(unsafeConfig);
+  await assert.rejects(sql(install));
+  assert.equal(
+    last(await sql("select to_regclass('public.study_workspaces') is null")),
+    "t",
+  );
+  await sql(validator);
+  pass(
+    "matching source with an unreviewed SECURITY DEFINER search_path is rejected",
+  );
+
   await sql(
     "create function public.temporary_auth_hook() returns trigger language plpgsql as $$begin return new;end$$;create trigger temporary_auth_hook after insert on auth.users for each row execute function public.temporary_auth_hook();",
   );
@@ -189,7 +217,39 @@ try {
     "drop trigger temporary_auth_hook on auth.users;drop function public.temporary_auth_hook();",
   );
   pass("unknown auth insert hooks stop installation without overriding them");
-  await sql(install);
+  const insecureInstall = install.replace(
+    "do $study_verify_before_commit$",
+    () =>
+      "grant execute on function public.commit_study_workspace(bigint,uuid,jsonb) to anon;\ndo $study_verify_before_commit$",
+  );
+  await assert.rejects(sql(insecureInstall));
+  assert.equal(await snapshot(), before);
+  assert.equal(
+    last(
+      await sql(
+        "select to_regclass('public.study_shared_installation') is null",
+      ),
+    ),
+    "t",
+  );
+  assert.equal(
+    await sql(
+      "select pg_get_triggerdef(oid) from pg_trigger where tgname='pp_auth_user_created';",
+    ),
+    triggerBefore,
+  );
+  pass(
+    "failed final permission verification rolls back all tables and restores the untouched math trigger",
+  );
+  // Simulate copying the full installer through a Windows CRLF editor for the
+  // live CRLF variant. Internal encoded source checks must survive that copy.
+  const copiedInstall =
+    variant === "crlf" ? install.replaceAll("\n", "\r\n") : install;
+  const installResult = last(await sql(copiedInstall));
+  assert.equal(installResult, "t|t|t|t|t|t|t|t");
+  pass(
+    "installation returns eight verified success flags, including through Windows copy/paste",
+  );
   assert.equal(await snapshot(), before);
   pass(
     "installation preserves all original profiles, progress, admin membership and validator source",
@@ -210,6 +270,15 @@ try {
   await assert.rejects(sql(install));
   assert.equal(await snapshot(), before);
   pass("repeat installation stops atomically without touching existing data");
+  await sql(
+    "create role supabase_auth_admin;grant usage on schema auth to supabase_auth_admin;grant select,insert on auth.users to supabase_auth_admin;",
+  );
+  await sql(
+    `set role supabase_auth_admin;insert into auth.users(id,email,raw_user_meta_data) values(${q(user(70))},'auth-role@example.net','{"email_verified":false,"phone_verified":false}'::jsonb);`,
+  );
+  pass(
+    "realistic Auth service role can insert an ordinary email without math profile privileges",
+  );
   await insert(2, "owner@example.net");
   assert.equal(
     last(

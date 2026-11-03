@@ -18,10 +18,32 @@ const exportedSource = exported.match(
   /AS \$function\$([\s\S]*?)\$function\$/,
 )?.[1];
 if (!exportedSource) throw Error("Cannot extract reviewed owner export");
-const expected = `$study_legacy_source$${source}$study_legacy_source$, $study_owner_source$${exportedSource}$study_owner_source$`;
+const liveDiagnostic = JSON.parse(
+  await fs.readFile("tests/fixtures/math-pp-new-user-crlf.json", "utf8"),
+);
+const crlfSource = liveDiagnostic.validator.source;
+if (
+  crlfSource.replaceAll("\r\n", "\n") !== exportedSource ||
+  !liveDiagnostic.validator.security_definer ||
+  JSON.stringify(liveDiagnostic.validator.settings) !==
+    JSON.stringify(["search_path=pg_catalog"])
+)
+  throw Error("CRLF fixture differs from the reviewed owner function");
+// Escape every internal line ending. Copying the installer between Windows and
+// browser editors must NOT change the bytes of the expected source strings.
+const sqlText = (text) =>
+  "E'" +
+  text
+    .replaceAll("\\", "\\\\")
+    .replaceAll("'", "''")
+    .replaceAll("\r", "\\r")
+    .replaceAll("\n", "\\n") +
+  "'";
+const reviewedSources = [source, exportedSource, crlfSource];
+const expected = reviewedSources.map(sqlText).join(", ");
 const check = `do $study_preflight$
 begin
- if not exists(select 1 from pg_proc p where p.oid=to_regprocedure('public.pp_new_user()') and p.prosecdef and p.prosrc in (${expected})) then
+ if not exists(select 1 from pg_proc p where p.oid=to_regprocedure('public.pp_new_user()') and p.prosecdef and p.prolang=(select oid from pg_language where lanname='plpgsql') and p.proconfig=array['search_path=pg_catalog']::text[] and p.prosrc in (${expected})) then
   raise exception 'Math registration validator differs from the reviewed version. STOP: do not edit or disable the existing function; send the preflight result for review.';
  end if;
  if not exists(select 1 from pg_trigger t where t.tgrelid='auth.users'::regclass and t.tgname='pp_auth_user_created' and t.tgfoid=to_regprocedure('public.pp_new_user()') and t.tgtype=5 and t.tgenabled='O' and t.tgnargs=0 and t.tgqual is null) then
@@ -34,12 +56,12 @@ begin
   raise exception 'Study objects already exist. Do not reinstall over existing data. Ask for an upgrade/check instead.';
  end if;
 end $study_preflight$;`;
-const fingerprints = [source, exportedSource]
+const fingerprints = reviewedSources
   .map((s) => "\'" + createHash("md5").update(s).digest("hex") + "\'")
   .join(",");
 const readOnly = `-- READ ONLY: safe to run in maths Library SQL Editor. No user emails or data are returned.
 select
- exists(select 1 from pg_proc p where p.oid=to_regprocedure('public.pp_new_user()') and p.prosecdef and md5(p.prosrc) in (${fingerprints})) as math_validator_matches,
+ exists(select 1 from pg_proc p where p.oid=to_regprocedure('public.pp_new_user()') and p.prosecdef and p.prolang=(select oid from pg_language where lanname='plpgsql') and p.proconfig=array['search_path=pg_catalog']::text[] and md5(p.prosrc) in (${fingerprints})) as math_validator_matches,
  exists(select 1 from pg_trigger t where t.tgrelid='auth.users'::regclass and t.tgname='pp_auth_user_created' and t.tgfoid=to_regprocedure('public.pp_new_user()') and t.tgtype=5 and t.tgenabled='O' and t.tgnargs=0 and t.tgqual is null) as math_trigger_matches,
  to_regclass('public.study_workspaces') is not null as study_already_installed,
  (select count(*) from pg_trigger where tgrelid='auth.users'::regclass and not tgisinternal and (tgtype&4)=4 and tgname<>'pp_auth_user_created') as other_insert_triggers;
@@ -139,7 +161,7 @@ await fs.writeFile(
 select
  (select count(*)=4 from pg_class where oid in (to_regclass('public.study_workspaces'),to_regclass('public.study_operations'),to_regclass('public.study_verified_emails'),to_regclass('public.study_shared_installation'))) as study_tables_present,
  (select count(*)=3 and bool_and(relrowsecurity) from pg_class where oid in (to_regclass('public.study_workspaces'),to_regclass('public.study_operations'),to_regclass('public.study_verified_emails'))) as study_rls_enabled,
- exists(select 1 from pg_proc p where p.oid=to_regprocedure('public.pp_new_user()') and p.prosecdef and md5(p.prosrc) in (${fingerprints})) as math_validator_unchanged,
+ exists(select 1 from pg_proc p where p.oid=to_regprocedure('public.pp_new_user()') and p.prosecdef and p.prolang=(select oid from pg_language where lanname='plpgsql') and p.proconfig=array['search_path=pg_catalog']::text[] and md5(p.prosrc) in (${fingerprints})) as math_validator_unchanged,
  exists(select 1 from pg_trigger t join public.study_shared_installation i on i.id where t.tgrelid='auth.users'::regclass and t.tgname='pp_auth_user_created' and pg_get_triggerdef(t.oid)=i.installed_trigger_sql) as math_trigger_matches_install,
  (select count(*)=2 from pg_policies where schemaname='public' and ((tablename='study_workspaces' and policyname='own_workspace') or (tablename='study_operations' and policyname='own_operations')) and qual like '%study_has_access%') as verified_access_policies_present,
  not exists(select 1 from (values ('public.study_workspaces'),('public.study_operations'),('public.study_verified_emails'),('public.study_shared_installation')) t(name) cross join (values ('anon'),('authenticated')) r(name) cross join (values ('INSERT'),('UPDATE'),('DELETE')) p(name) where has_table_privilege(r.name,t.name,p.name)) as clients_cannot_write_tables,
@@ -165,8 +187,38 @@ select
       else 'PARTIAL_OR_DIFFERENT' end as install_state,
  table_count as study_tables_found, function_count as study_functions_found,
  exists(select 1 from pg_trigger where tgrelid=to_regclass('auth.users') and tgname='pp_auth_user_created' and not tgisinternal and tgqual is not null) as nickname_filter_present,
- exists(select 1 from pg_proc p where p.oid=to_regprocedure('public.pp_new_user()') and p.prosecdef and md5(p.prosrc) in (${fingerprints})) as math_validator_matches,
+ exists(select 1 from pg_proc p where p.oid=to_regprocedure('public.pp_new_user()') and p.prosecdef and p.prolang=(select oid from pg_language where lanname='plpgsql') and p.proconfig=array['search_path=pg_catalog']::text[] and md5(p.prosrc) in (${fingerprints})) as math_validator_matches,
  (select count(*) from pg_trigger where tgrelid=to_regclass('auth.users') and not tgisinternal and (tgtype&4)=4 and tgname<>'pp_auth_user_created') as other_insert_triggers
 from counts;
 `,
+);
+
+// Verify all eight permissions/schema checks inside the same transaction, then
+// return them to the owner. "Success. No rows returned" is no longer the only
+// feedback for this installer. Any failed check rolls everything back.
+const verificationSql = (
+  await fs.readFile("supabase/shared/03_verify_install.sql", "utf8")
+)
+  .replace(/^--[^\n]*(?:\n|$)/gm, "")
+  .trim()
+  .replace(/;$/, "");
+const verifiedCommit = `do $study_verify_before_commit$
+declare checks jsonb;
+begin
+ select to_jsonb(v) into checks from (${verificationSql}) v;
+ if checks is null or (select count(*) from jsonb_each(checks))<>8
+ or exists(select 1 from jsonb_each(checks) c where c.value is distinct from 'true'::jsonb) then
+  raise exception 'Shared installation verification failed; transaction rolled back: %',checks;
+ end if;
+end $study_verify_before_commit$;
+commit;
+${verificationSql};
+`;
+const installationFile = "supabase/shared/01_install_shared.sql";
+const installationText = await fs.readFile(installationFile, "utf8");
+if (!/commit;\n$/.test(installationText))
+  throw Error("Installer COMMIT marker not found");
+await fs.writeFile(
+  installationFile,
+  installationText.replace(/commit;\n$/, () => verifiedCommit),
 );

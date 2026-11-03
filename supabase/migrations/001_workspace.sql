@@ -17,7 +17,7 @@ alter table public.study_workspaces enable row level security;
 alter table public.study_operations enable row level security;
 create policy own_workspace on public.study_workspaces for select to authenticated using (auth.uid()=user_id);
 create policy own_operations on public.study_operations for select to authenticated using (auth.uid()=user_id);
-revoke all on public.study_workspaces,public.study_operations from anon,authenticated;
+revoke all on public.study_workspaces,public.study_operations from public,anon,authenticated;
 grant select on public.study_workspaces,public.study_operations to authenticated;
 -- One account has one workspace row, hence one active timer. FOR UPDATE serializes
 -- all device writes; version compare prevents stale offline snapshots overwriting data.
@@ -40,6 +40,6 @@ begin
  insert into public.study_operations(user_id,operation_id,result) values(actor,operation_id,jsonb_build_object('version',row_data.version));
  return response;
 end $$;
-revoke all on function public.commit_study_workspace(bigint,uuid,jsonb) from public;
+revoke all on function public.commit_study_workspace(bigint,uuid,jsonb) from public,anon,authenticated;
 grant execute on function public.commit_study_workspace(bigint,uuid,jsonb) to authenticated;
 commit;

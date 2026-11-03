@@ -1,0 +1,8 @@
+{
+  "validator": {
+    "source": "\r\ndeclare\r\n nick text;\r\n key text;\r\n expected_email text;\r\nbegin\r\n nick:=normalize(\r\n  btrim(coalesce(new.raw_user_meta_data->>'nickname','')),\r\n  NFKC\r\n );\r\n\r\n if nick !~ '^[A-Za-z0-9_一-鿿]{2,20}$' then\r\n  raise exception '昵称须为2至20个中文、英文字母、数字或下划线';\r\n end if;\r\n\r\n key:=lower(nick);\r\n\r\n expected_email:=\r\n  encode(\r\n   extensions.digest(convert_to(key,'UTF8'),'sha256'),\r\n   'hex'\r\n  )||'@accounts.example.com';\r\n\r\n if lower(new.email) is distinct from expected_email then\r\n  raise exception '账户标识不匹配';\r\n end if;\r\n\r\n insert into public.pp_profiles(id,nickname,nickname_key)\r\n values(new.id,nick,key);\r\n\r\n return new;\r\nend\r\n",
+    "settings": ["search_path=pg_catalog"],
+    "security_definer": true
+  },
+  "math_profiles_exist": true
+}

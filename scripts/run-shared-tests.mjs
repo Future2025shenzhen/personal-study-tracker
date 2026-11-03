@@ -17,7 +17,8 @@ await run("scripts/build-shared-sql.mjs");
 await Promise.all([
   run("scripts/test-shared.mjs", { STUDY_TEST_LEGACY_VARIANT: "repository" }),
   run("scripts/test-shared.mjs", { STUDY_TEST_LEGACY_VARIANT: "export" }),
+  run("scripts/test-shared.mjs", { STUDY_TEST_LEGACY_VARIANT: "crlf" }),
 ]);
 console.log(
-  "Shared compatibility suite passed against BOTH exact reviewed validator variants.",
+  "Shared compatibility suite passed against all THREE exact reviewed validator variants.",
 );

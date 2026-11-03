@@ -4,49 +4,7 @@ begin;
 set local lock_timeout='5s';
 do $study_preflight$
 begin
- if not exists(select 1 from pg_proc p where p.oid=to_regprocedure('public.pp_new_user()') and p.prosecdef and p.prosrc in ($study_legacy_source$
-declare nick text; key text; expected_email text;
-begin
- nick:=normalize(btrim(coalesce(new.raw_user_meta_data->>'nickname','')),NFKC);
- if nick !~ '^[A-Za-z0-9_一-鿿]{2,20}$' then raise exception '昵称须为2至20个中文、英文字母、数字或下划线'; end if;
- key:=lower(nick);
- expected_email:=encode(extensions.digest(convert_to(key,'UTF8'),'sha256'),'hex')||'@accounts.example.com';
- if lower(new.email) is distinct from expected_email then raise exception '账户标识不匹配'; end if;
- insert into public.pp_profiles(id,nickname,nickname_key) values(new.id,nick,key);
- return new;
-end $study_legacy_source$, $study_owner_source$
-declare
- nick text;
- key text;
- expected_email text;
-begin
- nick:=normalize(
-  btrim(coalesce(new.raw_user_meta_data->>'nickname','')),
-  NFKC
- );
-
- if nick !~ '^[A-Za-z0-9_一-鿿]{2,20}$' then
-  raise exception '昵称须为2至20个中文、英文字母、数字或下划线';
- end if;
-
- key:=lower(nick);
-
- expected_email:=
-  encode(
-   extensions.digest(convert_to(key,'UTF8'),'sha256'),
-   'hex'
-  )||'@accounts.example.com';
-
- if lower(new.email) is distinct from expected_email then
-  raise exception '账户标识不匹配';
- end if;
-
- insert into public.pp_profiles(id,nickname,nickname_key)
- values(new.id,nick,key);
-
- return new;
-end
-$study_owner_source$)) then
+ if not exists(select 1 from pg_proc p where p.oid=to_regprocedure('public.pp_new_user()') and p.prosecdef and p.prolang=(select oid from pg_language where lanname='plpgsql') and p.proconfig=array['search_path=pg_catalog']::text[] and p.prosrc in (E'\ndeclare nick text; key text; expected_email text;\nbegin\n nick:=normalize(btrim(coalesce(new.raw_user_meta_data->>''nickname'','''')),NFKC);\n if nick !~ ''^[A-Za-z0-9_一-鿿]{2,20}$'' then raise exception ''昵称须为2至20个中文、英文字母、数字或下划线''; end if;\n key:=lower(nick);\n expected_email:=encode(extensions.digest(convert_to(key,''UTF8''),''sha256''),''hex'')||''@accounts.example.com'';\n if lower(new.email) is distinct from expected_email then raise exception ''账户标识不匹配''; end if;\n insert into public.pp_profiles(id,nickname,nickname_key) values(new.id,nick,key);\n return new;\nend ', E'\ndeclare\n nick text;\n key text;\n expected_email text;\nbegin\n nick:=normalize(\n  btrim(coalesce(new.raw_user_meta_data->>''nickname'','''')),\n  NFKC\n );\n\n if nick !~ ''^[A-Za-z0-9_一-鿿]{2,20}$'' then\n  raise exception ''昵称须为2至20个中文、英文字母、数字或下划线'';\n end if;\n\n key:=lower(nick);\n\n expected_email:=\n  encode(\n   extensions.digest(convert_to(key,''UTF8''),''sha256''),\n   ''hex''\n  )||''@accounts.example.com'';\n\n if lower(new.email) is distinct from expected_email then\n  raise exception ''账户标识不匹配'';\n end if;\n\n insert into public.pp_profiles(id,nickname,nickname_key)\n values(new.id,nick,key);\n\n return new;\nend\n', E'\r\ndeclare\r\n nick text;\r\n key text;\r\n expected_email text;\r\nbegin\r\n nick:=normalize(\r\n  btrim(coalesce(new.raw_user_meta_data->>''nickname'','''')),\r\n  NFKC\r\n );\r\n\r\n if nick !~ ''^[A-Za-z0-9_一-鿿]{2,20}$'' then\r\n  raise exception ''昵称须为2至20个中文、英文字母、数字或下划线'';\r\n end if;\r\n\r\n key:=lower(nick);\r\n\r\n expected_email:=\r\n  encode(\r\n   extensions.digest(convert_to(key,''UTF8''),''sha256''),\r\n   ''hex''\r\n  )||''@accounts.example.com'';\r\n\r\n if lower(new.email) is distinct from expected_email then\r\n  raise exception ''账户标识不匹配'';\r\n end if;\r\n\r\n insert into public.pp_profiles(id,nickname,nickname_key)\r\n values(new.id,nick,key);\r\n\r\n return new;\r\nend\r\n')) then
   raise exception 'Math registration validator differs from the reviewed version. STOP: do not edit or disable the existing function; send the preflight result for review.';
  end if;
  if not exists(select 1 from pg_trigger t where t.tgrelid='auth.users'::regclass and t.tgname='pp_auth_user_created' and t.tgfoid=to_regprocedure('public.pp_new_user()') and t.tgtype=5 and t.tgenabled='O' and t.tgnargs=0 and t.tgqual is null) then
@@ -136,7 +94,7 @@ alter table public.study_workspaces enable row level security;
 alter table public.study_operations enable row level security;
 create policy own_workspace on public.study_workspaces for select to authenticated using (auth.uid()=user_id and (select public.study_has_access()));
 create policy own_operations on public.study_operations for select to authenticated using (auth.uid()=user_id and (select public.study_has_access()));
-revoke all on public.study_workspaces,public.study_operations from anon,authenticated;
+revoke all on public.study_workspaces,public.study_operations from public,anon,authenticated;
 grant select on public.study_workspaces,public.study_operations to authenticated;
 -- One account has one workspace row, hence one active timer. FOR UPDATE serializes
 -- all device writes; version compare prevents stale offline snapshots overwriting data.
@@ -160,7 +118,33 @@ begin
  insert into public.study_operations(user_id,operation_id,result) values(actor,operation_id,jsonb_build_object('version',row_data.version));
  return response;
 end $$;
-revoke all on function public.commit_study_workspace(bigint,uuid,jsonb) from public;
+revoke all on function public.commit_study_workspace(bigint,uuid,jsonb) from public,anon,authenticated;
 grant execute on function public.commit_study_workspace(bigint,uuid,jsonb) to authenticated;
 
+do $study_verify_before_commit$
+declare checks jsonb;
+begin
+ select to_jsonb(v) into checks from (select
+ (select count(*)=4 from pg_class where oid in (to_regclass('public.study_workspaces'),to_regclass('public.study_operations'),to_regclass('public.study_verified_emails'),to_regclass('public.study_shared_installation'))) as study_tables_present,
+ (select count(*)=3 and bool_and(relrowsecurity) from pg_class where oid in (to_regclass('public.study_workspaces'),to_regclass('public.study_operations'),to_regclass('public.study_verified_emails'))) as study_rls_enabled,
+ exists(select 1 from pg_proc p where p.oid=to_regprocedure('public.pp_new_user()') and p.prosecdef and p.prolang=(select oid from pg_language where lanname='plpgsql') and p.proconfig=array['search_path=pg_catalog']::text[] and md5(p.prosrc) in ('a5f606ebffd818001d6ae7b2457f0e3a','c023595549fa4e936e448a02edf3ea30','10b3e94a26bd7e25defe5891e86198b7')) as math_validator_unchanged,
+ exists(select 1 from pg_trigger t join public.study_shared_installation i on i.id where t.tgrelid='auth.users'::regclass and t.tgname='pp_auth_user_created' and pg_get_triggerdef(t.oid)=i.installed_trigger_sql) as math_trigger_matches_install,
+ (select count(*)=2 from pg_policies where schemaname='public' and ((tablename='study_workspaces' and policyname='own_workspace') or (tablename='study_operations' and policyname='own_operations')) and qual like '%study_has_access%') as verified_access_policies_present,
+ not exists(select 1 from (values ('public.study_workspaces'),('public.study_operations'),('public.study_verified_emails'),('public.study_shared_installation')) t(name) cross join (values ('anon'),('authenticated')) r(name) cross join (values ('INSERT'),('UPDATE'),('DELETE')) p(name) where has_table_privilege(r.name,t.name,p.name)) as clients_cannot_write_tables,
+ not has_table_privilege('authenticated','public.study_verified_emails','SELECT') and not has_table_privilege('anon','public.study_verified_emails','SELECT') and not has_table_privilege('authenticated','public.study_shared_installation','SELECT') and not has_table_privilege('anon','public.study_shared_installation','SELECT') as private_metadata_protected,
+ not has_function_privilege('anon','public.commit_study_workspace(bigint,uuid,jsonb)','EXECUTE') and not has_function_privilege('anon','public.study_authorize_email()','EXECUTE') as anonymous_write_api_blocked) v;
+ if checks is null or (select count(*) from jsonb_each(checks))<>8
+ or exists(select 1 from jsonb_each(checks) c where c.value is distinct from 'true'::jsonb) then
+  raise exception 'Shared installation verification failed; transaction rolled back: %',checks;
+ end if;
+end $study_verify_before_commit$;
 commit;
+select
+ (select count(*)=4 from pg_class where oid in (to_regclass('public.study_workspaces'),to_regclass('public.study_operations'),to_regclass('public.study_verified_emails'),to_regclass('public.study_shared_installation'))) as study_tables_present,
+ (select count(*)=3 and bool_and(relrowsecurity) from pg_class where oid in (to_regclass('public.study_workspaces'),to_regclass('public.study_operations'),to_regclass('public.study_verified_emails'))) as study_rls_enabled,
+ exists(select 1 from pg_proc p where p.oid=to_regprocedure('public.pp_new_user()') and p.prosecdef and p.prolang=(select oid from pg_language where lanname='plpgsql') and p.proconfig=array['search_path=pg_catalog']::text[] and md5(p.prosrc) in ('a5f606ebffd818001d6ae7b2457f0e3a','c023595549fa4e936e448a02edf3ea30','10b3e94a26bd7e25defe5891e86198b7')) as math_validator_unchanged,
+ exists(select 1 from pg_trigger t join public.study_shared_installation i on i.id where t.tgrelid='auth.users'::regclass and t.tgname='pp_auth_user_created' and pg_get_triggerdef(t.oid)=i.installed_trigger_sql) as math_trigger_matches_install,
+ (select count(*)=2 from pg_policies where schemaname='public' and ((tablename='study_workspaces' and policyname='own_workspace') or (tablename='study_operations' and policyname='own_operations')) and qual like '%study_has_access%') as verified_access_policies_present,
+ not exists(select 1 from (values ('public.study_workspaces'),('public.study_operations'),('public.study_verified_emails'),('public.study_shared_installation')) t(name) cross join (values ('anon'),('authenticated')) r(name) cross join (values ('INSERT'),('UPDATE'),('DELETE')) p(name) where has_table_privilege(r.name,t.name,p.name)) as clients_cannot_write_tables,
+ not has_table_privilege('authenticated','public.study_verified_emails','SELECT') and not has_table_privilege('anon','public.study_verified_emails','SELECT') and not has_table_privilege('authenticated','public.study_shared_installation','SELECT') and not has_table_privilege('anon','public.study_shared_installation','SELECT') as private_metadata_protected,
+ not has_function_privilege('anon','public.commit_study_workspace(bigint,uuid,jsonb)','EXECUTE') and not has_function_privilege('anon','public.study_authorize_email()','EXECUTE') as anonymous_write_api_blocked;

@@ -11,6 +11,6 @@ select
       else 'PARTIAL_OR_DIFFERENT' end as install_state,
  table_count as study_tables_found, function_count as study_functions_found,
  exists(select 1 from pg_trigger where tgrelid=to_regclass('auth.users') and tgname='pp_auth_user_created' and not tgisinternal and tgqual is not null) as nickname_filter_present,
- exists(select 1 from pg_proc p where p.oid=to_regprocedure('public.pp_new_user()') and p.prosecdef and md5(p.prosrc) in ('a5f606ebffd818001d6ae7b2457f0e3a','c023595549fa4e936e448a02edf3ea30')) as math_validator_matches,
+ exists(select 1 from pg_proc p where p.oid=to_regprocedure('public.pp_new_user()') and p.prosecdef and p.prolang=(select oid from pg_language where lanname='plpgsql') and p.proconfig=array['search_path=pg_catalog']::text[] and md5(p.prosrc) in ('a5f606ebffd818001d6ae7b2457f0e3a','c023595549fa4e936e448a02edf3ea30','10b3e94a26bd7e25defe5891e86198b7')) as math_validator_matches,
  (select count(*) from pg_trigger where tgrelid=to_regclass('auth.users') and not tgisinternal and (tgtype&4)=4 and tgname<>'pp_auth_user_created') as other_insert_triggers
 from counts;

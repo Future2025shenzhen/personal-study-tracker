@@ -1,0 +1,4 @@
+# Keep reviewed SQL source fingerprints reproducible across checkout platforms.
+* text=auto eol=lf
+*.png -text
+*.zip -text
