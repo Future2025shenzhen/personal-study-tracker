@@ -1039,3 +1039,15 @@ dialog::backdrop {
     max-width: calc(100% - 110px);
   }
 }
+.auth-help {
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.auth-help p {
+  line-height: 1.8;
+  margin-top: 10px;
+}
+.auth form button + button {
+  margin-top: 8px;
+}

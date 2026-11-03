@@ -2,7 +2,7 @@
 
 源码仓库：https://github.com/Future2025shenzhen/personal-study-tracker 。Pages Source 已由项目所有者设置为 GitHub Actions。网站入口为 https://future2025shenzhen.github.io/personal-study-tracker/ （发布状态以最新 Actions 结果为准）。首次构建通过后曾因未启用 Pages 返回 404；后续重跑暴露的临时 Postgres 启动时序问题已修复，完整检查仍为发布前提。
 
-**2026-11-03 更新：用户已授权共用 maths Library 的 Supabase，sixsigma 不动。当前步骤见 [共享后台安装指南](docs/SHARED_SUPABASE.md)。网站已发布，但真实邮箱注册仍失败；最新只读检查发现安装记录表缺失，需先按共享指南的 04 目录诊断核对实际项目和对象，不能把此前 SQL Success 当作完整安装证明。**
+**2026-11-03 更新：用户已授权共用 maths Library 的 Supabase，sixsigma 不动。当前步骤见 [共享后台安装指南](docs/SHARED_SUPABASE.md)。网站已发布，用户已提供新版共享安装核查通过的结果。当前邮件仍只有链接，数字验证码需按 [邮件设置指南](docs/EMAIL_CODE_SETUP.md) 在现有模板追加 Token；真实数字登录和跨设备同步仍待验收。**
 
 独立于 pure-maths-library 的新项目。React + TypeScript + Vite 静态前端，Supabase Auth / Postgres 云端。无广告、排行榜和自动判分。
 

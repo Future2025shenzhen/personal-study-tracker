@@ -1,10 +1,11 @@
+import Auth from "./Auth";
 import {
-  useEffect,
-  useRef,
-  useState,
-  type FormEvent,
-  type ReactNode,
-} from "react";
+  callbackIssue,
+  clearCallbackParams,
+  friendlyAuthError,
+  clearPendingMail,
+} from "./auth-feedback";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   addDays,
   allocate,
@@ -35,7 +36,6 @@ import {
   download,
   Store,
   supabase,
-  sharedBackend,
   authorizeStudyAccount,
 } from "./storage";
 const pages = [
@@ -82,135 +82,6 @@ function Modal({
     </dialog>
   );
 }
-function Auth({ local }: { local: () => void }) {
-  const [mode, setMode] = useState("password"),
-    [message, setMessage] = useState(""),
-    [busy, setBusy] = useState(false);
-  async function submit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!supabase) return;
-    const f = new FormData(e.currentTarget),
-      email = value(f, "email"),
-      password = value(f, "password");
-    setBusy(true);
-    setMessage("");
-    try {
-      const redirect = location.origin + location.pathname;
-      let result;
-      if (mode === "password")
-        result = await supabase.auth.signInWithPassword({ email, password });
-      else if (mode === "register" && !sharedBackend)
-        result = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: redirect },
-        });
-      else if (mode === "otp" || mode === "register")
-        result = await supabase.auth.signInWithOtp({
-          email,
-          options: { emailRedirectTo: redirect, shouldCreateUser: true },
-        });
-      else if (mode === "verify")
-        result = await supabase.auth.verifyOtp({
-          email,
-          token: value(f, "token"),
-          type: "email",
-        });
-      else
-        result = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: redirect + "?reset=1",
-        });
-      if (result.error) throw result.error;
-      setMessage(
-        mode === "password"
-          ? "登录成功"
-          : "请求成功，请检查邮箱。如邮件含验证码，在“输入验证码”页提交；若为链接，直接打开。",
-      );
-    } catch (e) {
-      setMessage((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <div className="auth">
-      <div className="brand">
-        ◷ <span>学习记录</span>
-      </div>
-      <h1>个人学习记录</h1>
-      <p className="muted">计时、待办与学习回顾</p>
-      {configured ? (
-        <>
-          <div className="tabs">
-            {[
-              ["password", "密码登录"],
-              ["otp", "邮箱登录"],
-              ["verify", "输入验证码"],
-              ["register", "注册"],
-              ["reset", "找回密码"],
-            ].map(([id, label]) => (
-              <button
-                key={id}
-                className={mode === id ? "selected" : ""}
-                onClick={() => setMode(id)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          {sharedBackend && (
-            <p className="small muted">
-              首次使用请选“邮箱登录”或“注册”，接收验证码完成验证。登录后可在设置中设置密码；数学题库昵称账号继续单独使用。
-            </p>
-          )}
-          <form onSubmit={submit}>
-            <label>
-              邮箱
-              <input name="email" type="email" required autoComplete="email" />
-            </label>
-            {(mode === "password" ||
-              (mode === "register" && !sharedBackend)) && (
-              <label>
-                密码
-                <input
-                  name="password"
-                  type="password"
-                  required
-                  minLength={mode === "register" ? 12 : 1}
-                  autoComplete={
-                    mode === "register" ? "new-password" : "current-password"
-                  }
-                />
-              </label>
-            )}
-            {mode === "verify" && (
-              <label>
-                邮件验证码
-                <input
-                  name="token"
-                  inputMode="numeric"
-                  required
-                  autoComplete="one-time-code"
-                />
-              </label>
-            )}
-            <button className="primary" disabled={busy}>
-              {busy ? "处理中…" : "继续"}
-            </button>
-          </form>
-          <p role="status">{message}</p>
-        </>
-      ) : (
-        <div className="notice">
-          云端账号尚未配置。现在可以使用本机模式：记录真实保存于此浏览器，不会自动跨设备同步。清除浏览器数据前请导出备份。
-        </div>
-      )}
-      <button className="text-button" onClick={local}>
-        使用本机模式 →
-      </button>
-    </div>
-  );
-}
 export default function App() {
   const [store, setStore] = useState<Store | null>(null),
     [ready, setReady] = useState(!configured),
@@ -226,7 +97,10 @@ export default function App() {
   const now = useNow();
   const bind = async (id: string, cloud: boolean) => {
     try {
-      if (cloud) await authorizeStudyAccount();
+      if (cloud) {
+        await authorizeStudyAccount();
+        clearPendingMail();
+      }
       setAuthError("");
       setStore((current) => {
         if (current?.userId === id && current.cloud === cloud) return current;
@@ -248,9 +122,23 @@ export default function App() {
     let active = true;
     void supabase.auth.getSession().then(async ({ data, error }) => {
       if (!active) return;
-      if (error) setAuthError(error.message);
+      if (error) setAuthError(friendlyAuthError(error));
+      const callbackProblem = !data.session
+        ? callbackIssue(location.search, location.hash)
+        : "";
+      if (!data.session) {
+        const issue = callbackProblem;
+        if (issue) {
+          setAuthError(issue);
+          clearCallbackParams();
+          setRoute(location.hash.slice(1) || "home");
+        }
+      }
       if (data.session) await bind(data.session.user.id, true);
-      else if (localStorage.getItem("study-local-mode") === "1")
+      else if (
+        !callbackProblem &&
+        localStorage.getItem("study-local-mode") === "1"
+      )
         await bind("local", false);
       if (active) setReady(true);
     });

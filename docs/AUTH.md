@@ -16,3 +16,5 @@
 - https://supabase.com/docs/guides/auth/auth-smtp
 - https://supabase.com/docs/guides/auth/rate-limits
 - https://github.com/supabase/supabase/tree/master/apps/docs/content/guides/auth
+
+用户已实测收到 Magic Link，数字验证码缺失的配置步骤和新 UI 行为见 [EMAIL_CODE_SETUP.md](EMAIL_CODE_SETUP.md)。实际数字投递仍待验收。

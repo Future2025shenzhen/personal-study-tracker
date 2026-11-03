@@ -84,13 +84,17 @@ test("shared registration sends OTP, stores auth separately, authorizes before o
   await page.getByRole("button", { name: "注册", exact: true }).click();
   await expect(page.getByLabel("密码", { exact: true })).toHaveCount(0);
   await page.getByLabel("邮箱", { exact: true }).fill(email);
-  await page.getByRole("button", { name: "继续", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("请求成功");
+  await page.getByRole("button", { name: "发送登录邮件", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("登录邮件已请求发送");
   expect(calls.some((c) => c.path === "/auth/v1/otp")).toBe(true);
   expect(calls.some((c) => c.path === "/auth/v1/signup")).toBe(false);
-  await page.getByRole("button", { name: "输入验证码", exact: true }).click();
+  await expect(page.getByLabel("邮件验证码")).toBeVisible();
+  await expect(page.getByLabel("邮箱", { exact: true })).toHaveValue(email);
+  await expect(
+    page.getByRole("button", { name: "验证并登录", exact: true }),
+  ).toBeEnabled();
   await page.getByLabel("邮件验证码").fill("123456");
-  await page.getByRole("button", { name: "继续", exact: true }).click();
+  await page.getByRole("button", { name: "验证并登录", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "首页", exact: true }),
   ).toBeVisible();
@@ -114,7 +118,7 @@ test("server verification refusal leaves login visible and does not load cloud r
   await page.getByRole("button", { name: "输入验证码", exact: true }).click();
   await page.getByLabel("邮箱", { exact: true }).fill(email);
   await page.getByLabel("邮件验证码").fill("123456");
-  await page.getByRole("button", { name: "继续", exact: true }).click();
+  await page.getByRole("button", { name: "验证并登录", exact: true }).click();
   await expect(
     page.getByText("无法打开学习账号：", { exact: false }),
   ).toBeVisible();
@@ -122,4 +126,68 @@ test("server verification refusal leaves login visible and does not load cloud r
     page.getByRole("heading", { name: "个人学习记录", exact: true }),
   ).toBeVisible();
   expect(calls.some((c) => c.path === "/rest/v1/study_workspaces")).toBe(false);
+});
+
+test("25-second server cooldown is Chinese, blocks duplicate mail requests, survives reload and keeps email", async ({
+  page,
+}) => {
+  await page.clock.install();
+  const calls = await backend(page);
+  await page.route("https://shared-study.test/auth/v1/otp**", async (route) => {
+    calls.push({ path: "/auth/v1/otp", body: route.request().postDataJSON() });
+    await route.fulfill({
+      status: 429,
+      contentType: "application/json",
+      body: JSON.stringify({
+        code: "over_email_send_rate_limit",
+        msg: "For security purposes, you can only request this after 25 seconds.",
+      }),
+    });
+  });
+  await page.goto("/");
+  await page.getByLabel("邮箱", { exact: true }).fill(email);
+  await page.getByRole("button", { name: "发送登录邮件", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("倒计时");
+  await expect(
+    page.getByRole("button", { name: /等待 \d+ 秒后重发/ }),
+  ).toBeDisabled();
+  await expect(page.getByLabel("邮件验证码")).toBeVisible();
+  expect(calls.filter((c) => c.path === "/auth/v1/otp")).toHaveLength(1);
+  await page.reload();
+  await expect(page.getByLabel("邮箱", { exact: true })).toHaveValue(email);
+  await expect(page.getByLabel("邮件验证码")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /等待 \d+ 秒后重发/ }),
+  ).toBeDisabled();
+  expect(calls.filter((c) => c.path === "/auth/v1/otp")).toHaveLength(1);
+  // Advance browser time past the persisted deadline; this does not mock away the server guard.
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.clock.fastForward(26000);
+  await expect(
+    page.getByRole("button", { name: "重新发送登录邮件", exact: true }),
+  ).toBeEnabled();
+});
+test("a callback opened without its originating browser shows recovery guidance instead of silently returning to login", async ({
+  page,
+}) => {
+  await page.addInitScript(() => localStorage.setItem("study-local-mode", "1"));
+  await backend(page);
+  await page.goto("/?code=simulation-callback-never-share");
+  await expect(page.getByRole("alert")).toContainText("同");
+  await expect(
+    page.getByRole("heading", { name: "个人学习记录", exact: true }),
+  ).toBeVisible();
+  expect(page.url()).not.toContain("simulation-callback-never-share");
+  await page.getByText("邮件里只有链接，或链接打不开？").click();
+  await expect(
+    page.getByText("数字验证码需要邮件模板启用。", { exact: false }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "使用本机模式" }).click();
+  await expect(
+    page.getByRole("heading", { name: "首页", exact: true }),
+  ).toBeVisible();
 });

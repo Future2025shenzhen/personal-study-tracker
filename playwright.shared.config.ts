@@ -13,6 +13,17 @@ export default defineConfig({
       VITE_SUPABASE_SHARED_BACKEND: "true",
     },
   },
+  projects: [
+    { name: "desktop", use: { viewport: { width: 1440, height: 1000 } } },
+    {
+      name: "mobile",
+      use: {
+        viewport: { width: 390, height: 844 },
+        isMobile: true,
+        hasTouch: true,
+      },
+    },
+  ],
   use: {
     baseURL: "http://127.0.0.1:5180",
     launchOptions: {
