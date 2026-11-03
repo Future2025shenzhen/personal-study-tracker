@@ -4,7 +4,7 @@ begin;
 set local lock_timeout='5s';
 do $study_preflight$
 begin
- if not exists(select 1 from pg_proc p where p.oid=to_regprocedure('public.pp_new_user()') and p.prosecdef and p.prosrc=$study_legacy_source$
+ if not exists(select 1 from pg_proc p where p.oid=to_regprocedure('public.pp_new_user()') and p.prosecdef and p.prosrc in ($study_legacy_source$
 declare nick text; key text; expected_email text;
 begin
  nick:=normalize(btrim(coalesce(new.raw_user_meta_data->>'nickname','')),NFKC);
@@ -14,7 +14,39 @@ begin
  if lower(new.email) is distinct from expected_email then raise exception '账户标识不匹配'; end if;
  insert into public.pp_profiles(id,nickname,nickname_key) values(new.id,nick,key);
  return new;
-end $study_legacy_source$) then
+end $study_legacy_source$, $study_owner_source$
+declare
+ nick text;
+ key text;
+ expected_email text;
+begin
+ nick:=normalize(
+  btrim(coalesce(new.raw_user_meta_data->>'nickname','')),
+  NFKC
+ );
+
+ if nick !~ '^[A-Za-z0-9_一-鿿]{2,20}$' then
+  raise exception '昵称须为2至20个中文、英文字母、数字或下划线';
+ end if;
+
+ key:=lower(nick);
+
+ expected_email:=
+  encode(
+   extensions.digest(convert_to(key,'UTF8'),'sha256'),
+   'hex'
+  )||'@accounts.example.com';
+
+ if lower(new.email) is distinct from expected_email then
+  raise exception '账户标识不匹配';
+ end if;
+
+ insert into public.pp_profiles(id,nickname,nickname_key)
+ values(new.id,nick,key);
+
+ return new;
+end
+$study_owner_source$)) then
   raise exception 'Math registration validator differs from the reviewed version. STOP: do not edit or disable the existing function; send the preflight result for review.';
  end if;
  if not exists(select 1 from pg_trigger t where t.tgrelid='auth.users'::regclass and t.tgname='pp_auth_user_created' and t.tgfoid=to_regprocedure('public.pp_new_user()') and t.tgtype=5 and t.tgenabled='O' and t.tgnargs=0 and t.tgqual is null) then

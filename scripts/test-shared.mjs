@@ -103,6 +103,16 @@ try {
     `create role anon;create role authenticated;create schema auth;create table auth.users(id uuid primary key,email text,raw_user_meta_data jsonb default '{}');create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;create function auth.jwt() returns jsonb language sql stable as $$select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb$$;grant usage on schema auth to anon,authenticated;grant execute on function auth.uid(),auth.jwt() to anon,authenticated;`,
   );
   await sql(await fs.readFile("tests/fixtures/math-001-accounts.sql", "utf8"));
+  const exportedVariant = process.env.STUDY_TEST_LEGACY_VARIANT === "export";
+  const ownerExport = await fs.readFile(
+    "tests/fixtures/math-pp-new-user-export.sql",
+    "utf8",
+  );
+  if (exportedVariant) await sql(ownerExport);
+  console.log(
+    "Testing validator variant: " +
+      (exportedVariant ? "owner-export" : "repository"),
+  );
   await insert(1, email("Student_One"), { nickname: "Student_One" });
   await sql(
     `insert into public.pp_question_catalog values('math-q','original','P1');insert into public.pp_records(user_id,question_id,saved,done,version) values(${q(user(1))},'math-q',true,true,9);insert into public.pp_admins values(${q(user(1))});`,
@@ -134,11 +144,16 @@ try {
     "tests/fixtures/math-001-accounts.sql",
     "utf8",
   );
-  const validator = fixture.match(
-    /create or replace function public\.pp_new_user\(\)[\s\S]*?\$\$;/,
-  )[0];
+  const validator = exportedVariant
+    ? ownerExport
+    : fixture.match(
+        /create or replace function public\.pp_new_user\(\)[\s\S]*?\$\$;/,
+      )[0];
   await sql(
-    validator.replace("as $$", () => "as $$\n-- custom deployment change"),
+    validator.replace(
+      /(as \$\$|AS \$function\$)/,
+      (value) => value + "\n-- custom deployment change",
+    ),
   );
   await assert.rejects(sql(install));
   assert.equal(
