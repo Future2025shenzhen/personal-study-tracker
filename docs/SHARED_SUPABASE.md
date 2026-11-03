@@ -43,7 +43,7 @@
 
 新前端使用 `.env.maths-library.example`（其中只有现有公开数学网站的 URL/public key），以及 `VITE_SUPABASE_SHARED_BACKEND=true`。只有安装后才启用。不要把公开 key 误换成服务端私钥。
 
-生产配置已放入可提交的 `.env.production`，只有公开 Project URL、公开 publishable key 与 shared 模式开关，普通 `npm run build` 和 GitHub Actions 自动构建均会读取。无需再让用户找安全凭据或手动填三个变量。本机开发仍可不配置云端，使用本机模式；需开发联调时复制公开配置到被忽略的 `.env.local`。当前独立 GitHub 远程仓库尚未创建。
+生产配置已放入可提交的 `.env.production`，只有公开 Project URL、公开 publishable key 与 shared 模式开关，普通 `npm run build` 和 GitHub Actions 自动构建均会读取。无需再让用户找安全凭据或手动填三个变量。本机开发仍可不配置云端，使用本机模式；需开发联调时复制公开配置到被忽略的 `.env.local`。独立仓库已创建并上传：https://github.com/Future2025shenzhen/personal-study-tracker 。首次云端构建通过，发布阶段因未启用 Pages 返回 404；需仓库所有者到 Settings → Pages 选择 GitHub Actions。
 
 邮件设置是共享的：保留原 Site URL，只在 Redirect URLs **追加**新网站根地址和密码恢复地址（带 `?reset=1`），不替换或删除旧地址。若默认 Magic Link 模板只含链接，可保留原模板并在学习网站用邮件链接验证；要输入式数字 OTP，则在保留原链接的基础上增加 `{{ .Token }}`。邮件模板可能被两个网站共用，不能任意覆盖。
 

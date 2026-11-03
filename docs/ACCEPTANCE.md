@@ -57,3 +57,11 @@ npm run build
 `.env.production` 只包含原公开网站使用的 Supabase URL/publishable key 与共享模式开关，已参与正式构建。24 项 Vitest、每个数学函数版本 26 项共享数据库检查、正式产物的仓库子路径加载/邮箱 OTP UI/刷新/本机回退均已验证；生产测试主动拦截外部 Auth 请求，未触发真实邮件。云环境对 GitHub API、项目 Supabase 域名仍返回代理 CONNECT 403。
 
 独立仓库与 Pages 尚未创建/发布；下一步由用户创建空仓库后再处理上传与发布。
+
+## GitHub 上传与首次云端运行
+
+仓库 https://github.com/Future2025shenzhen/personal-study-tracker 已由用户创建为空仓库。通过既有 HTTPS Git 认证成功上传 main，远程 f24460c1482820eeb29b6eb11ff02e428badd2ea 与当时本地提交一致。
+
+首次 Actions 运行：https://github.com/Future2025shenzhen/personal-study-tracker/actions/runs/41665791416 。build 全部成功，用时 1m22s，并产生 github-pages 制品；deploy 在 6s 内返回 404：Ensure GitHub Pages has been enabled。当前问题是仓库发布设置，不是测试失败。用户需在仓库 Settings → Pages → Source 选择 GitHub Actions。
+
+当前云环境仍禁止 api.github.com 和该站点 github.io 主机的连接；未能代用户修改 Pages 设置，不能声称网站已可访问。启用并发布后还须验收实际网站、邮箱投递及共享数据库连接。
