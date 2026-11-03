@@ -1,3 +1,5 @@
+> 2026-11-03 共享后台更新：备份工作流改为仅导出 `study_workspaces`、`study_operations`、`study_verified_emails` 三表数据，避免包含数学题库数据。恢复前必须先建立学习 schema 和 Auth 身份；下文旧 public schema 导出说明只适用于之前的独立后台测试，不是当前共享项目的生产备份。工作流仍未启用。
+
 # 备份与恢复
 
 ## 日常个人备份（现在可用）

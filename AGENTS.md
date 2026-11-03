@@ -11,3 +11,9 @@ RLS and optimistic concurrency must be tested with real Postgres (PGlite is the 
 Do not silently merge conflicting offline snapshots. Pending writes and local edits must survive reload and network failure. Cloud-mode offline new starts must be rejected; only previously started timers continue offline. Never claim full offline availability or automatic behavior detection.
 
 See docs/ACCEPTANCE.md for verified scope and outstanding deployment checks. All UI must work at 390px, keyboard focus must remain visible, dialogs must be native modal dialogs. Use hash navigation for GitHub Pages refresh/direct links. No ads/social/rankings.
+
+## Current shared-backend decision (2026-11-03)
+
+The user explicitly authorized sharing the maths Library Supabase, keeping sixsigma untouched. Source repositories and websites remain separate. Read docs/SHARED_SUPABASE.md. Never apply the standalone 001 migration to the existing math project. Use the generated read-only preflight first; shared installer must preserve exact legacy pp_new_user source and existing data, fail on drift or unknown INSERT hooks, and remain atomic. Do not enable global Confirm Email, change the old Site URL, or overwrite mail templates/redirect lists. Shared enrollment relies on server-verified Email OTP AMR, not editable metadata or auto-confirmed email flags; only current Email-provider behavior is reviewed. Add phone/OAuth only after a separate security review.
+
+Run npm run test:shared (Docker, unchanged original math SQL fixture), npm run test:shared-auth (browser/API contracts with simulated hosted responses), then existing checks. Generated shared SQL is rebuilt by scripts/build-shared-sql.mjs. Do not edit only generated files. Actual live checks and email delivery remain unverified.

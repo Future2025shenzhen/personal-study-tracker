@@ -21,10 +21,13 @@ jobs:
       - run: npm test
       - run: npm run test:database
       - run: npm run test:postgres
+      - run: npm run test:shared
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
+      - run: npm run test:shared-auth
       - run: npm run build
         env:
+          VITE_SUPABASE_SHARED_BACKEND: ${{ vars.VITE_SUPABASE_SHARED_BACKEND }}
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
       - uses: actions/upload-pages-artifact@v3

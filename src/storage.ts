@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { fresh, uid, validate, type Workspace } from "./domain";
 const env = import.meta.env;
+export const sharedBackend = env.VITE_SUPABASE_SHARED_BACKEND === "true";
 export const configured = !!(
   env.VITE_SUPABASE_URL && env.VITE_SUPABASE_PUBLISHABLE_KEY
 );
@@ -8,12 +9,19 @@ export const supabase: SupabaseClient | null = configured
   ? createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_PUBLISHABLE_KEY, {
       auth: {
         flowType: "pkce",
+        storageKey: "study-tracker-auth-v1",
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
       },
     })
   : null;
+export async function authorizeStudyAccount() {
+  if (!sharedBackend || !supabase) return;
+  const { data, error } = await supabase.rpc("study_authorize_email");
+  if (error) throw new Error(error.message);
+  if (data !== true) throw new Error("邮箱验证未完成，请使用邮箱验证码登录。");
+}
 export type Pending = { id: string; document: Workspace; base: number };
 export type Cache = { version: number; document: Workspace; pending?: Pending };
 export type Conflict = { version: number; document: Workspace };

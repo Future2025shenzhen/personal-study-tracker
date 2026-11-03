@@ -1,5 +1,7 @@
 # 免费独立后台评估 · 2026-11-03
 
+> 历史评估记录，当前已由用户后续授权共用 maths Library Supabase 取代。不要按本文件注册 Appwrite 或把其内容当成当前部署步骤；见 SHARED_SUPABASE.md。
+
 用户已明确：优先免费；不得暂停、删除或共用 maths Library、sixsigma。Supabase 的两个现有免费项目保持原状。**旧的 START_HERE.md 中“创建新 Supabase 项目”步骤目前不适用，请勿在两个旧项目执行学习网站的 SQL。**
 
 ## 当前建议：评估 Appwrite Cloud Free

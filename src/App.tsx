@@ -29,7 +29,15 @@ import {
   type Task,
   type Workspace,
 } from "./domain";
-import { backup, configured, download, Store, supabase } from "./storage";
+import {
+  backup,
+  configured,
+  download,
+  Store,
+  supabase,
+  sharedBackend,
+  authorizeStudyAccount,
+} from "./storage";
 const pages = [
   ["home", "首页", "Home"],
   ["timer", "计时器", "Timer"],
@@ -91,13 +99,13 @@ function Auth({ local }: { local: () => void }) {
       let result;
       if (mode === "password")
         result = await supabase.auth.signInWithPassword({ email, password });
-      else if (mode === "register")
+      else if (mode === "register" && !sharedBackend)
         result = await supabase.auth.signUp({
           email,
           password,
           options: { emailRedirectTo: redirect },
         });
-      else if (mode === "otp")
+      else if (mode === "otp" || mode === "register")
         result = await supabase.auth.signInWithOtp({
           email,
           options: { emailRedirectTo: redirect, shouldCreateUser: true },
@@ -150,12 +158,18 @@ function Auth({ local }: { local: () => void }) {
               </button>
             ))}
           </div>
+          {sharedBackend && (
+            <p className="small muted">
+              首次使用请选“邮箱登录”或“注册”，接收验证码完成验证。登录后可在设置中设置密码；数学题库昵称账号继续单独使用。
+            </p>
+          )}
           <form onSubmit={submit}>
             <label>
               邮箱
               <input name="email" type="email" required autoComplete="email" />
             </label>
-            {["password", "register"].includes(mode) && (
+            {(mode === "password" ||
+              (mode === "register" && !sharedBackend)) && (
               <label>
                 密码
                 <input
@@ -210,54 +224,48 @@ export default function App() {
     [modal, setModal] = useState<ReactNode>(null),
     [error, setError] = useState("");
   const now = useNow();
-  const bind = (id: string, cloud: boolean) => {
+  const bind = async (id: string, cloud: boolean) => {
     try {
-      const next = new Store(id, cloud);
-      next.onchange = () => setTick((x) => x + 1);
-      setStore(next);
-      if (cloud) void next.sync();
+      if (cloud) await authorizeStudyAccount();
+      setAuthError("");
+      setStore((current) => {
+        if (current?.userId === id && current.cloud === cloud) return current;
+        const next = new Store(id, cloud);
+        next.onchange = () => setTick((x) => x + 1);
+        if (cloud) void next.sync();
+        return next;
+      });
     } catch (e) {
-      setAuthError(
-        "本机数据无法读取，已保留原数据。请联系维护者：" + (e as Error).message,
-      );
+      setAuthError("无法打开学习账号：" + (e as Error).message);
     }
   };
   useEffect(() => {
     if (!supabase) {
       if (localStorage.getItem("study-local-mode") === "1")
-        bind("local", false);
+        void bind("local", false);
       return;
     }
-    void supabase.auth.getSession().then(({ data, error }) => {
+    let active = true;
+    void supabase.auth.getSession().then(async ({ data, error }) => {
+      if (!active) return;
       if (error) setAuthError(error.message);
-      if (data.session) bind(data.session.user.id, true);
+      if (data.session) await bind(data.session.user.id, true);
       else if (localStorage.getItem("study-local-mode") === "1")
-        bind("local", false);
-      setReady(true);
+        await bind("local", false);
+      if (active) setReady(true);
     });
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY") setRecovery(true);
       if (session && ["SIGNED_IN", "PASSWORD_RECOVERY"].includes(event)) {
-        setTimeout(
-          () =>
-            setStore((current) => {
-              if (current?.userId === session.user.id && current.cloud)
-                return current;
-              try {
-                const next = new Store(session.user.id, true);
-                next.onchange = () => setTick((x) => x + 1);
-                void next.sync();
-                return next;
-              } catch (e) {
-                setAuthError((e as Error).message);
-                return current;
-              }
-            }),
-          0,
-        );
+        setTimeout(() => {
+          if (active) void bind(session.user.id, true);
+        }, 0);
       } else if (event === "SIGNED_OUT") setStore(null);
     });
-    return () => data.subscription.unsubscribe();
+    return () => {
+      active = false;
+      data.subscription.unsubscribe();
+    };
   }, []);
   useEffect(() => {
     const fn = () => {
