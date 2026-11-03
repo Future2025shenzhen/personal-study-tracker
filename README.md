@@ -1,6 +1,6 @@
 # Personal Study Tracker · 个人学习记录
 
-**2026-11-03 更新：用户已授权共用 maths Library 的 Supabase，sixsigma 不动。当前步骤见 [共享后台安装指南](docs/SHARED_SUPABASE.md)。已准备兼容脚本；真实数据库尚未安装。**
+**2026-11-03 更新：用户已授权共用 maths Library 的 Supabase，sixsigma 不动。当前步骤见 [共享后台安装指南](docs/SHARED_SUPABASE.md)。用户已反馈共享安装 SQL 执行成功；真实表结构与权限的只读复查、邮箱投递及上线仍待验收。**
 
 独立于 pure-maths-library 的新项目。React + TypeScript + Vite 静态前端，Supabase Auth / Postgres 云端。无广告、排行榜和自动判分。
 
@@ -34,7 +34,7 @@ npm run preview             # 检查生产文件
 
 **当前使用共享模式：先按 [SHARED_SUPABASE.md](docs/SHARED_SUPABASE.md) 执行只读检查与共享安装；下面的新建专用项目步骤只作为其他部署方式参考，不可用于现有 maths Library。**
 
-在**全新专用 Supabase 项目**执行 `supabase/migrations/001_workspace.sql`，再复制 `.env.example` 为 `.env.local`，填写公开 URL 和 publishable key。私密密钥、数据库密码不进入前端或 Git。GitHub Pages 用 Repository Variables 配置相同字段，详见上线指南。
+在**全新专用 Supabase 项目**执行 `supabase/migrations/001_workspace.sql`，再复制 `.env.example` 为 `.env.local`，填写公开 URL 和 publishable key。私密密钥、数据库密码不进入前端或 Git。当前生产构建已由 `.env.production` 提供所选共享后台的公开配置，无需手填 Actions Variables。该文件不含管理令牌或服务端私钥，详见上线指南。
 
 ## 数据与一致性
 

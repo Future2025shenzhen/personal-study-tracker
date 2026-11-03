@@ -181,6 +181,15 @@ try {
   pass(
     "installation preserves all original profiles, progress, admin membership and validator source",
   );
+  const postCheck = last(
+    await sql(
+      await fs.readFile("supabase/shared/03_verify_install.sql", "utf8"),
+    ),
+  );
+  assert.equal(postCheck, "t|t|t|t|t|t|t|t");
+  pass(
+    "read-only post-install check confirms all eight schema, legacy and permission flags",
+  );
   await assert.rejects(sql(install));
   assert.equal(await snapshot(), before);
   pass("repeat installation stops atomically without touching existing data");

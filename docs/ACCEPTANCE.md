@@ -1,4 +1,4 @@
-> 2026-11-03 后续更新：当前改为用户授权的 maths Library 共用后台。新增 25 项共享兼容 PostgreSQL 集成检查（分别针对数学仓库版和用户提供的线上排版版各运行一次），另有 2 项函数版本核对测试及 2 项共享登录浏览器契约测试（响应为模拟，不是真实托管 Auth）。执行范围与步骤见 SHARED_SUPABASE.md。真实项目仍未安装、邮件仍未验收。下文为初版验收记录。
+> 2026-11-03 后续更新：当前改为用户授权的 maths Library 共用后台。新增 26 项共享兼容 PostgreSQL 集成检查（分别针对数学仓库版和用户提供的线上排版版各运行一次），另有 2 项函数版本核对测试及 2 项共享登录浏览器契约测试（响应为模拟，不是真实托管 Auth）。执行范围与步骤见 SHARED_SUPABASE.md。用户已截图反馈安装 SQL 成功；云环境无法直连该主机，真实权限复查、邮件与部署仍未验收。下文为初版验收记录。
 
 # 交付验收记录 · 2026-11-02
 
@@ -49,3 +49,11 @@ npx playwright install chromium
 npm run test:browser
 npm run build
 ```
+
+## 用户反馈安装成功后的发布准备
+
+用户提供 SQL Editor `Success. No rows returned` 截图；已加入独立的只读安装后核查文件 `03_verify_install.sql`。该核查在两个隔离数据库版本中八项结果均为 true，真实库尚未独立复查。
+
+`.env.production` 只包含原公开网站使用的 Supabase URL/publishable key 与共享模式开关，已参与正式构建。24 项 Vitest、每个数学函数版本 26 项共享数据库检查、正式产物的仓库子路径加载/邮箱 OTP UI/刷新/本机回退均已验证；生产测试主动拦截外部 Auth 请求，未触发真实邮件。云环境对 GitHub API、项目 Supabase 域名仍返回代理 CONNECT 403。
+
+独立仓库与 Pages 尚未创建/发布；下一步由用户创建空仓库后再处理上传与发布。

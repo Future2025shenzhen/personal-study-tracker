@@ -8,7 +8,7 @@
 
 ## 第一步：检查现有 maths Library 后台
 
-目前已改为用户授权的共用方案，无需创建第三个 Supabase 项目，也不需要管理令牌。
+目前已改为用户授权的共用方案，无需创建第三个 Supabase 项目，也不需要管理令牌。用户已反馈共享安装脚本成功；不要再次运行安装。
 
 请按 [共享后台指南](SHARED_SUPABASE.md) 先执行只读检查。通过后再安装单独的共享版 SQL；**不要在旧项目执行原来的 `supabase/migrations/001_workspace.sql`**。sixsigma 不动，数学题库源码与原数据表保留。
 
@@ -18,7 +18,7 @@
 
 1. 在自己的 GitHub 创建新仓库，例如 `personal-study-tracker`，不要覆盖 `pure-maths-library`。
 2. 上传本项目源码和 `package-lock.json`；不要上传 `.env.local`、`node_modules`、数据库密码。已提供自动部署工作流。
-3. Repository → Settings → Secrets and variables → Actions → **Variables** 添加 `VITE_SUPABASE_URL`、`VITE_SUPABASE_PUBLISHABLE_KEY`、`VITE_SUPABASE_SHARED_BACKEND=true`。URL 与 key 是现有后台的公开配置，不是数据库私钥。
+3. 公开生产配置已保存在 `.env.production` 并包含在源码包内，无需填写 Actions Variables 或任何 Secret。不要把它替换成 service_role 密钥。
 4. Settings → Pages → Source 选择 **GitHub Actions**。把源码推到 `main`，等待 “Test and publish Study Tracker” 全部变绿。实际地址由 Pages 面板显示，通常形如 `https://你的用户名.github.io/personal-study-tracker/`；这只是格式示例，不是已部署网址。
 5. Supabase Authentication → URL Configuration 保留数学网站原 **Site URL**；仅在 Redirect URLs 追加新站根路径及带 `?reset=1` 的地址，不删除旧地址。保留尾部 `/`。开发时若需调试，另外添加开发地址，不要随意允许不受控域名。
 6. 用网站注册自己的邮箱账号；在设置里从 JSON 导入之前的本机备份。首次云端工作区有自己的默认科目 ID；导入按 ID 合并，不会凭相同科目名猜测合并关系，因此可能出现同名科目。可将空的默认科目归档。
@@ -32,7 +32,7 @@
 - iPhone/iPad Safari、Android、桌面检查表单、弹窗、深浅色、路由刷新；中国大陆的家庭/学校网络都应实际测试。
 - 下载 JSON，另一个空测试工作区导入，确认会话、任务、目标和删除恢复一致。随后再决定启用加密定时备份。
 
-**最少的下一步：先执行共享后台只读检查并发回结果；之后创建独立 GitHub 仓库并提供仓库地址。公开后台配置已从数学网站读取，不用再次找密钥。** 我可以继续处理接入与发布验证。你不用发送任何私密密码。若当前工具无法取得 GitHub 写权限，我会明确说明需要你上传源码或连接相应账号，不会要求你在聊天贴访问令牌。
+**最少的下一步：在 GitHub 创建独立的 `personal-study-tracker` 空仓库，并提供仓库地址。若要使用免费 GitHub Pages，仓库选择 Public；公开的是代码和公开配置，个人学习记录保存在受权限保护的数据库。公开后台配置已从数学网站读取，不用再次找密钥。** 我可以继续处理接入与发布验证。你不用发送任何私密密码。若当前工具无法取得 GitHub 写权限，我会明确说明需要你上传源码或连接相应账号，不会要求你在聊天贴访问令牌。
 
 ## 费用边界
 
