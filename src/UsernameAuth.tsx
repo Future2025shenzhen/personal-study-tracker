@@ -124,7 +124,7 @@ export default function UsernameAuth({ local }: { local: () => void }) {
             type="password"
             autoComplete={register ? "new-password" : "current-password"}
             required
-            minLength={register ? (admin ? 8 : 12) : 1}
+            minLength={register ? (admin ? 8 : 6) : 1}
             maxLength={128}
           />
         </label>
@@ -137,14 +137,14 @@ export default function UsernameAuth({ local }: { local: () => void }) {
                 type="password"
                 autoComplete="new-password"
                 required
-                minLength={admin ? 8 : 12}
+                minLength={admin ? 8 : 6}
                 maxLength={128}
               />
             </label>
             <p>
               {admin
                 ? "管理员初始密码至少 8 位，首次登录后须改为至少 12 位的新密码。"
-                : "密码至少 12 位。"}
+                : "密码至少 6 位。"}
               用户名账号没有邮箱找回功能，请妥善保管密码。
             </p>
           </>

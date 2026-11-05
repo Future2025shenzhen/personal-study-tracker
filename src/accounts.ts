@@ -47,7 +47,7 @@ export function accountError(error: unknown) {
     return "新密码必须与初始密码不同。";
   if (/rate|too many/i.test(message)) return "操作过于频繁，请稍后再试。";
   if (/password/i.test(message))
-    return "密码不符合要求，请使用至少 12 位的新密码。";
+    return "密码不符合服务器要求，请检查长度或更换密码。";
   if (/database error/i.test(message))
     return "注册未完成。请检查用户名是否已使用；管理员还需填写有效的邀请码。";
   if (/fetch|network/i.test(message)) return "连接失败，请检查网络后重试。";

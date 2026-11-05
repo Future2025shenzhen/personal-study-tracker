@@ -142,8 +142,12 @@ test("username signup needs no email, persists session across reload and another
   await page.goto("/");
   await page.getByRole("button", { name: "注册账号", exact: true }).click();
   await page.getByLabel("用户名", { exact: true }).fill("Student_01");
-  await page.getByLabel("密码", { exact: true }).fill(testPassword);
-  await page.getByLabel("确认密码", { exact: true }).fill(testPassword);
+  await expect(page.getByLabel("密码", { exact: true })).toHaveAttribute(
+    "minlength",
+    "6",
+  );
+  await page.getByLabel("密码", { exact: true }).fill("Ab9x7Q");
+  await page.getByLabel("确认密码", { exact: true }).fill("Ab9x7Q");
   await page.getByRole("button", { name: "注册并登录", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "首页", exact: true }),
