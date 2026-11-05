@@ -776,6 +776,26 @@ dialog::backdrop {
 .auth form button {
   width: 100%;
 }
+.admin-users {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+.admin-users .card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 18px;
+  overflow-wrap: anywhere;
+}
+.actions,
+form.inline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
 .tabs {
   display: flex;
   flex-wrap: wrap;

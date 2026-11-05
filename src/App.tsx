@@ -1,4 +1,6 @@
-import Auth from "./Auth";
+import Auth, { InitialPassword } from "./UsernameAuth";
+import Admin from "./Admin";
+import type { Identity } from "./accounts";
 import {
   callbackIssue,
   clearCallbackParams,
@@ -37,6 +39,7 @@ import {
   Store,
   supabase,
   authorizeStudyAccount,
+  signOutStudyAccount,
 } from "./storage";
 const pages = [
   ["home", "首页", "Home"],
@@ -83,6 +86,7 @@ function Modal({
   );
 }
 export default function App() {
+  const [identity, setIdentity] = useState<Identity | null>(null);
   const [store, setStore] = useState<Store | null>(null),
     [ready, setReady] = useState(!configured),
     [authError, setAuthError] = useState(""),
@@ -98,9 +102,17 @@ export default function App() {
   const bind = async (id: string, cloud: boolean) => {
     try {
       if (cloud) {
-        await authorizeStudyAccount();
+        const account = await authorizeStudyAccount();
+        setIdentity(account);
+        if (account?.must_change_password) {
+          setStore((current) => {
+            current?.dispose();
+            return null;
+          });
+          return;
+        }
         clearPendingMail();
-      }
+      } else setIdentity(null);
       setAuthError("");
       setStore((current) => {
         if (current?.userId === id && current.cloud === cloud) return current;
@@ -110,6 +122,11 @@ export default function App() {
         return next;
       });
     } catch (e) {
+      setStore((current) => {
+        current?.dispose();
+        return null;
+      });
+      setIdentity(null);
       setAuthError("无法打开学习账号：" + (e as Error).message);
     }
   };
@@ -148,7 +165,13 @@ export default function App() {
         setTimeout(() => {
           if (active) void bind(session.user.id, true);
         }, 0);
-      } else if (event === "SIGNED_OUT") setStore(null);
+      } else if (event === "SIGNED_OUT") {
+        setStore((current) => {
+          current?.dispose();
+          return null;
+        });
+        setIdentity(null);
+      }
     });
     return () => {
       active = false;
@@ -165,8 +188,31 @@ export default function App() {
   }, []);
   useEffect(() => {
     if (!store) return;
-    const id = setInterval(() => void store.sync(), 5000);
-    const fn = () => void store.sync();
+    let checking = false;
+    const fn = async () => {
+      if (checking) return;
+      checking = true;
+      try {
+        if (store.cloud && navigator.onLine) {
+          const result = await supabase!.rpc("study_account_identity");
+          if (
+            result.error?.code === "42501" ||
+            result.data?.must_change_password ||
+            (identity && !result.error && !result.data?.username)
+          ) {
+            store.dispose();
+            setStore(null);
+            setIdentity(result.data?.username ? result.data : null);
+            setAuthError(result.error?.message || "请更换初始密码。");
+            return;
+          }
+        }
+        await store.sync();
+      } finally {
+        checking = false;
+      }
+    };
+    const id = setInterval(() => void fn(), 5000);
     const storage = (e: StorageEvent) => {
       if (e.key === store.key && e.newValue) {
         try {
@@ -208,6 +254,16 @@ export default function App() {
   }
   const w = store?.workspace;
   if (!ready) return <main className="auth">正在恢复账号…</main>;
+  if (identity?.must_change_password)
+    return (
+      <InitialPassword
+        done={() => {
+          void supabase!.auth.getSession().then(({ data }) => {
+            if (data.session) void bind(data.session.user.id, true);
+          });
+        }}
+      />
+    );
   if (!store || !w)
     return (
       <>
@@ -566,7 +622,11 @@ export default function App() {
         );
       });
   }
-  const title = pages.find((p) => p[0] === route) || pages[0];
+  const visiblePages =
+    identity?.role === "admin"
+      ? [...pages, ["admin", "管理后台", "Administration"]]
+      : pages;
+  const title = visiblePages.find((p) => p[0] === route) || pages[0];
   return (
     <div className={"shell" + (w.settings.sidebarCollapsed ? " compact" : "")}>
       <aside className={menu ? "open" : ""}>
@@ -574,14 +634,14 @@ export default function App() {
           ◷ <span>学习记录</span>
         </a>
         <nav>
-          {pages.map(([id, label, en], i) => (
+          {visiblePages.map(([id, label, en], i) => (
             <a
               key={id}
               href={"#" + id}
               className={route === id ? "active" : ""}
             >
               <span className="nav-symbol">
-                {["⌂", "◷", "▥", "≡", "✓", "⊙"][i]}
+                {["⌂", "◷", "▥", "≡", "✓", "⊙", "⚙"][i]}
               </span>
               <span>
                 {label}
@@ -917,6 +977,9 @@ export default function App() {
           {route === "tasks" && (
             <Tasks w={w} edit={editTask} update={update} begin={begin} />
           )}
+          {route === "admin" && identity?.role === "admin" && store.cloud && (
+            <Admin />
+          )}
           {route === "settings" && (
             <>
               <section>
@@ -1220,10 +1283,11 @@ export default function App() {
                         return;
                     }
                     if (store.cloud) {
-                      const { error } = await supabase!.auth.signOut({
-                        scope: "local",
-                      });
-                      if (error) return setError(error.message);
+                      try {
+                        await signOutStudyAccount();
+                      } catch (error) {
+                        return setError((error as Error).message);
+                      }
                       store.dispose();
                       localStorage.removeItem(store.key);
                     } else localStorage.removeItem("study-local-mode");

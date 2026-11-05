@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { fresh, uid, validate, type Workspace } from "./domain";
+import type { Identity } from "./accounts";
 const env = import.meta.env;
 export const sharedBackend = env.VITE_SUPABASE_SHARED_BACKEND === "true";
 export const configured = !!(
@@ -16,11 +17,76 @@ export const supabase: SupabaseClient | null = configured
       },
     })
   : null;
-export async function authorizeStudyAccount() {
-  if (!sharedBackend || !supabase) return;
+export async function authorizeStudyAccount(): Promise<Identity | null> {
+  if (!sharedBackend || !supabase) return null;
+  const identity = await supabase.rpc("study_account_identity");
+  if (
+    identity.error &&
+    identity.error.code !== "PGRST202" &&
+    identity.error.code !== "42883"
+  )
+    throw new Error(identity.error.message);
+  if (identity.data?.username) return identity.data as Identity;
   const { data, error } = await supabase.rpc("study_authorize_email");
   if (error) throw new Error(error.message);
   if (data !== true) throw new Error("邮箱验证未完成，请使用邮箱验证码登录。");
+  return null;
+}
+export async function registerStudyUsername(
+  email: string,
+  password: string,
+  metadata: Record<string, string>,
+) {
+  if (!supabase) throw Error("账号服务未配置");
+  // Auth may echo signup metadata before database triggers sanitize it. Keep
+  // that response in memory; only the main client's fresh /user result persists.
+  const transient = createClient(
+    env.VITE_SUPABASE_URL,
+    env.VITE_SUPABASE_PUBLISHABLE_KEY,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+        storageKey: "study-signup-transient",
+      },
+    },
+  );
+  const result = await transient.auth.signUp({
+    email,
+    password,
+    options: { data: metadata },
+  });
+  if (result.error || !result.data.session) return result;
+  return supabase.auth.setSession({
+    access_token: result.data.session.access_token,
+    refresh_token: result.data.session.refresh_token,
+  });
+}
+export async function signOutStudyAccount() {
+  if (!supabase) return;
+  const { data } = await supabase.auth.getSession();
+  const endedToken = data.session?.access_token;
+  const { error } = await supabase.auth.signOut({ scope: "local" });
+  if (error) throw error;
+  if (sharedBackend && endedToken) {
+    // This token stays only in this function's memory. The server verifies the
+    // session was removed by Auth; a browser cannot invent another user's event.
+    try {
+      await fetch(env.VITE_SUPABASE_URL + "/rest/v1/rpc/study_record_logout", {
+        method: "POST",
+        headers: {
+          apikey: env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          Authorization: "Bearer " + endedToken,
+          "Content-Type": "application/json",
+        },
+        body: "{}",
+        signal: AbortSignal.timeout(5000),
+      });
+    } catch {
+      /* Logout succeeded; a network failure may leave an audit gap. */
+    }
+  }
 }
 export type Pending = { id: string; document: Workspace; base: number };
 export type Cache = { version: number; document: Workspace; pending?: Pending };

@@ -11,6 +11,7 @@
     "test:browser": "playwright test",
     "test:database": "node scripts/test-database.mjs",
     "test:postgres": "node scripts/test-postgres.mjs",
+    "test:username": "node scripts/test-username.mjs",
     "test:shared": "node scripts/run-shared-tests.mjs",
     "test:shared-auth": "playwright test --config playwright.shared.config.ts"
   },

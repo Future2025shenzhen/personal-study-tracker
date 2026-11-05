@@ -22,6 +22,7 @@ jobs:
       - run: npm run test:database
       - run: npm run test:postgres
       - run: npm run test:shared
+      - run: npm run test:username
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
       - run: npm run test:shared-auth

@@ -1,3 +1,5 @@
+> **当前方案已更新：新注册无需邮箱验证码。** 请先按 [用户名账号设置](USERNAME_ACCOUNTS.md) 升级。下文邮件步骤仅供原有邮箱账号使用；无需为新用户名账号配置 SMTP。
+
 # Auth 官方核对与上线验收
 
 2026-11-02 通过 Supabase 官方仓库阅读了 passwords、auth-email-passwordless、auth-smtp、rate-limits 文档。本环境访问文档主站返回 403，因此使用同一官方项目的 Markdown 源码，不把无法访问主站误判为功能不可用。
