@@ -23,7 +23,16 @@ jobs:
       - run: npm run test:postgres
       - run: npm run test:shared
       - run: npm run test:username
-      - run: npx playwright install --with-deps chromium
+      - name: Prepare browser
+        timeout-minutes: 8
+        run: |
+          study_browser_path="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
+          if [ -n "$study_browser_path" ]; then
+            "$study_browser_path" --version
+            echo "PLAYWRIGHT_CHROMIUM_EXECUTABLE=$study_browser_path" >> "$GITHUB_ENV"
+          else
+            npx playwright install --with-deps chromium
+          fi
       - run: npm run test:browser
       - run: npm run test:shared-auth
       - run: npm run build
